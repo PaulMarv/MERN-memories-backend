@@ -14,7 +14,7 @@ export const getPosts = async(req, res)=>{
 export const createPosts = async (req, res) => {
     const post = req.body
 
-    const newPost = new PostMessages(post)
+    const newPost = new PostMessages({...post, creator: req.userId, createdAt: new Date().toISOString()})
     try {
         await newPost.save();
 
@@ -35,18 +35,35 @@ export const updatePost = async (req, res) =>{
 
 export const deletePost = async(req, res) =>{
     const {id} = req.params;
+
     if(!mongoose.Types.ObjectId.isValid(id)) return response.status(404).send('No post with the id');
+
     await PostMessages.findByIdAndRemove(id);
 
-    console.log('DELETED !');
     res.json({message: 'post deleted successfully'})
 }
 
 export const likePost = async(req, res) => {
+
     const {id} = req.params;
+
+    if(!req.userId) return res.json({message:'unAuthenticated'})
+
     if(!mongoose.Types.ObjectId.isValid(id)) return response.status(404).send('No post with the id');
+    
     const post = await PostMessages.findById(id);
-    const updatedPost = await PostMessages.findByIdAndUpdate(id, {likeCount: post.likeCount + 1}, {new:true});
-    console.log('LIKED !')
+
+    const index = post.likes.findIndex((id)=> id === String(req.userId)) // check if a user already liked a post
+
+    if(index === -1){
+        //like a post
+        post.likes.push(req.userId)
+    }else{
+        //dislike apost
+        post.likes = post.likes.filter((id) => id !== String(req.userId));
+    }   
+    
+    const updatedPost = await PostMessages.findByIdAndUpdate(id, post, {new:true});
+    
     res.json(updatedPost)
 }   
